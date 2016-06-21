@@ -1,0 +1,81 @@
+#!/usr/bin/env ruby
+# -*- coding: utf-8 -*-
+
+require 'sinatra'
+require 'sinatra/base'
+require 'sinatra/reloader'
+require 'sinatra/cross_origin'
+require 'mongo'
+require 'json'
+require 'webrick'
+require 'webrick/https'
+require 'openssl'
+
+
+SSL_DIR = File.join(__dir__, '.ssl')
+class Application < Sinatra::Base
+  register Sinatra::CrossOrigin
+
+  @@db = Mongo::Connection.new.db('web')
+  configure do
+    set :bind, '0.0.0.0'
+    set :port, 8443
+  end
+
+  before do
+    cross_origin
+    content_type :js
+  end
+
+
+#  get '/' do
+#    'hello'
+#  end
+
+  get '/*' do |dt|
+    if m = dt.match(/^([^\/])+\/(.+)\/?$/)
+      @@db.collection(m[1]).find_one('_id': m[2]).to_json
+    else {}.to_json
+    end
+  end
+
+  post '/*' do |dt|
+    status = if m = dt.match(/^([^\/])+\/(.+)\/?$/)
+      key = {'_id': m[2]}
+      dt  = JSON.parse(request.body.read)
+      wd  = @@db.collection(m[1])
+      if wd.find(key).count == 0 then wd.save(key.merge dt)
+      else wd.update(key, dt)
+      end
+      true
+    else false
+    end
+    {status: status}.to_json
+  end
+
+  def self.run!
+    rack_handler_config = {}
+    ssl_options = {
+      cert_chain_file:  File.join(SSL_DIR, 'server.crt'),
+      private_key_file: File.join(SSL_DIR, 'server.key'),
+      verify_peer:      false
+    }
+    Rack::Handler::Thin.run(self, rack_handler_config) do |server|
+      server.ssl = true
+      server.ssl_options = ssl_options
+    end
+=begin
+    super do |server|
+      server.ssl = true
+      server.ssl_options = {
+        cert_chain_file:  File.join(SSL_DIR, 'server.crt'),
+        private_key_file: File.join(SSL_DIR, 'server.key'),
+        verify_peer:      false
+      }
+    end
+=end
+  end
+
+  run! if app_file == $0
+end
+

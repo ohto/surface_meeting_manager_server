@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title><%= @meeting['title'] %></title>
+  </head>
+<body>
+<h1><center>会議名: <%= @meeting['title'] %></center></h1>
+<center>アジェンダ</center><hr>
+<ol>
+<% @meeting['subject'].each do |subject, time| %>
+  <li><%= subject %> : <%= time %>[分]</li>
+<% end %>
+</ol>
+
+<p>メンバー:</p>
+<ul>
+<% @meeting['member'].each do |name, mail| %>
+  <li><%= name %> : <%= mail %></li>
+<% end %>
+</ul>
+
+<a href=<%= File.join(url, 'wb.html') %>>start</a>
+</body>
+</html>
+
